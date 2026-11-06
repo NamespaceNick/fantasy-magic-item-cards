@@ -1,0 +1,260 @@
+/* Fantasy Magic Item Cards */
+
+.fmic-card {
+  --fmic-accent: #8a7f6a;
+  --fmic-paper: #f4ead2;
+  --fmic-paper-edge: #e3d3ad;
+  --fmic-ink: #2b2118;
+  --fmic-ink-soft: #5b4a36;
+
+  /* Poker card: 2.5in x 3.5in (63.5 x 88.9 mm), 5:7 */
+  --fmic-scale: 1.7;   /* on-screen zoom; print is forced to 1 */
+  --fmic-fit: 1;       /* set by JS to shrink long text */
+
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: calc(2.5in * var(--fmic-scale));
+  height: calc(3.5in * var(--fmic-scale));
+  aspect-ratio: 5 / 7;
+  overflow: hidden;
+  font-size: calc(8pt * var(--fmic-scale) * var(--fmic-fit));
+  margin: 1em auto;
+  /* 1u = 1pt at print scale. Border/padding use u (not em) so the image frame
+     keeps a constant aspect ratio even when text is shrunk to fit. */
+  --fmic-u: calc(1pt * var(--fmic-scale));
+  padding: calc(7 * var(--fmic-u)) calc(8 * var(--fmic-u)) calc(6 * var(--fmic-u));
+  color: var(--fmic-ink);
+  background: linear-gradient(160deg, var(--fmic-paper), var(--fmic-paper-edge));
+  border: calc(2 * var(--fmic-u)) solid var(--fmic-accent);
+  border-radius: 0.6em;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25), inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.theme-dark .fmic-card {
+  --fmic-paper: #3a3226;
+  --fmic-paper-edge: #2c261d;
+  --fmic-ink: #f0e6d0;
+  --fmic-ink-soft: #c9b995;
+}
+
+.fmic-rarity-common   { --fmic-accent: #9a9a9a; }
+.fmic-rarity-uncommon { --fmic-accent: #1f9d3a; }
+.fmic-rarity-rare     { --fmic-accent: #2f6fd6; }
+.fmic-rarity-very-rare { --fmic-accent: #8a3fd0; }
+.fmic-rarity-legendary { --fmic-accent: #e0801a; }
+.fmic-rarity-artifact { --fmic-accent: #b8302a; }
+
+.fmic-header {
+  text-align: center;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--fmic-accent);
+}
+
+.fmic-name {
+  font-size: 1.45em;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant: small-caps;
+  letter-spacing: 0.02em;
+}
+
+.fmic-type {
+  margin-top: 2px;
+  font-size: 0.9em;
+  font-style: italic;
+  color: var(--fmic-ink-soft);
+}
+
+.fmic-header, .fmic-meta, .fmic-price { flex: 0 0 auto; }
+
+/* Image frame: fixed 160u x 70u so the crop math in card.ts (FRAME_ASPECT) holds. */
+.fmic-image {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  height: calc(70 * var(--fmic-u));
+  margin: 0.6em 0 0.2em;
+  box-sizing: border-box;
+  /* No border or background: transparent art blends into the card. */
+}
+.fmic-image-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.fmic-image img {
+  position: absolute;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  object-fit: fill;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+.fmic-image:not(.fmic-ready) img { visibility: hidden; }
+
+/* Adjust mode: whole image dimmed outside the frame, bright inside it */
+.fmic-image:not(.fmic-adjusting).fmic-ready { cursor: zoom-in; }
+
+/* Full-size viewer */
+.fmic-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  cursor: zoom-out;
+}
+.fmic-viewer-panel {
+  max-width: 92vw;
+  max-height: 92vh;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--background-primary, #fff);
+  text-align: center;
+}
+.fmic-viewer-panel img {
+  display: block;
+  max-width: 86vw;
+  max-height: 82vh;
+  margin: 0 auto;
+  object-fit: contain;
+}
+.fmic-viewer-hint {
+  margin-top: 8px;
+  font: 11px/1.2 var(--font-interface, sans-serif);
+  color: var(--text-muted, #888);
+}
+
+.fmic-image.fmic-adjusting {
+  z-index: 5;
+  cursor: grab;
+  touch-action: none;
+  outline: 2px dashed var(--fmic-accent);
+  outline-offset: 1px;
+}
+.fmic-image.fmic-dragging { cursor: grabbing; }
+.fmic-image-ghost { opacity: 0.35; z-index: 0; }
+.fmic-image-clip { z-index: 1; }
+
+.fmic-adjust-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px); /* below the image so the picture stays visible */
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font: 11px/1.2 var(--font-interface, sans-serif);
+  color: #fff;
+  background: rgba(20, 20, 20, 0.92);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  cursor: default;
+}
+.fmic-adjust-hint { opacity: 0.75; }
+.fmic-adjust-row { display: flex; align-items: center; gap: 6px; }
+.fmic-adjust-row > span { flex: 0 0 3.8em; }
+.fmic-adjust-buttons { justify-content: flex-end; }
+.fmic-adjust-bar input[type="range"] { flex: 1 1 auto; min-width: 0; }
+.fmic-adjust-bar button { font-size: 11px; padding: 1px 6px; height: auto; }
+
+.fmic-adjust-btn {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  z-index: 6;
+  font: 11px/1.2 var(--font-interface, sans-serif);
+  padding: 1px 6px;
+  height: auto;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.fmic-card:hover .fmic-adjust-btn { opacity: 1; }
+.fmic-adjusting .fmic-adjust-btn { display: none; }
+@media (hover: none) { .fmic-adjust-btn { opacity: 0.85; } }
+
+.fmic-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin: 10px 0 8px;
+  font-size: 0.9em;
+  color: var(--fmic-ink-soft);
+}
+
+.fmic-rarity {
+  font-weight: 700;
+  color: var(--fmic-accent);
+  text-transform: capitalize;
+}
+
+.fmic-attunement { font-style: italic; }
+
+.fmic-description {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  font-size: 1em;
+  line-height: 1.45;
+  color: var(--fmic-ink);
+}
+
+.fmic-description > :first-child { margin-top: 0; }
+.fmic-description > :last-child { margin-bottom: 0; }
+.fmic-description p { margin: 0 0 0.6em; }
+.fmic-description ul,
+.fmic-description ol { margin: 0.3em 0 0.6em; padding-left: 1.4em; }
+.fmic-description table { width: 100%; margin: 0.4em 0; font-size: 0.95em; }
+.fmic-description th,
+.fmic-description td { border: 1px solid var(--fmic-accent); padding: 2px 6px; }
+.fmic-description a { color: var(--fmic-accent); }
+
+.fmic-align-left    { text-align: left; }
+.fmic-align-center  { text-align: center; }
+.fmic-align-right   { text-align: right; }
+.fmic-align-justify { text-align: justify; }
+
+.fmic-price {
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px solid var(--fmic-accent);
+  text-align: right;
+  font-weight: 700;
+  font-size: 0.9em;
+  color: var(--fmic-ink-soft);
+}
+
+/* Description didn't fit even at minimum size: flag it on screen only */
+.fmic-overflow { outline: 2px dashed var(--text-error, #c33); outline-offset: 2px; }
+
+@media print {
+  .fmic-card {
+    --fmic-scale: 1;
+    margin: 0;
+    box-shadow: none;
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .fmic-overflow { outline: none; }
+  .fmic-adjust-btn, .fmic-adjust-bar { display: none !important; }
+}
+
+.fmic-error {
+  padding: 8px 12px;
+  border: 1px solid var(--text-error, #c33);
+  border-radius: 6px;
+  color: var(--text-error, #c33);
+  background: var(--background-secondary);
+}

@@ -1,0 +1,10 @@
+{
+  "id": "fantasy-magic-item-cards",
+  "name": "Fantasy Magic Item Cards",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.7",
+  "description": "Render fantasy magic item cards from simple YAML code blocks, with full Markdown descriptions.",
+  "author": "NamespaceNick",
+  "authorUrl": "https://github.com/NamespaceNick",
+  "isDesktopOnly": false
+}
