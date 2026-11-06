@@ -1,6 +1,6 @@
 {
   "name": "fantasy-magic-item-cards",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Render Dungeons & Dragons style magic item cards in Obsidian from simple YAML code blocks.",
   "main": "main.js",
   "private": true,

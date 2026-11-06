@@ -130,6 +130,20 @@ class CardRenderChild extends MarkdownRenderChild {
       cls: `fmic-card fmic-rarity-${rarityCssSuffix(card.rarityClass)}`,
     });
 
+    // Click the card to see it enlarged. Links, buttons, the image (which has its own
+    // viewer) and text selection keep their normal behavior.
+    root.addClass("fmic-zoomable");
+    const passthrough = "a, button, input, textarea, .fmic-image, .fmic-adjust-bar";
+    root.addEventListener("mousedown", (e) => {
+      if (!(e.target as HTMLElement).closest(passthrough)) e.stopPropagation();
+    });
+    root.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).closest(passthrough)) return;
+      if (root.win.getSelection()?.toString()) return;
+      e.stopPropagation();
+      this.openCardViewer(root);
+    });
+
     const header = root.createDiv({ cls: "fmic-header" });
     header.createDiv({ cls: "fmic-name", text: card.name });
     const sub = [card.type, card.subtype].filter(Boolean).join(" · ");
@@ -402,13 +416,39 @@ class CardRenderChild extends MarkdownRenderChild {
     });
   }
 
-  /** Full-size, uncropped view of the image. Click anywhere or press Esc to close. */
+  /** Full-size, uncropped view of the image. */
   private openViewer(src: string, alt: string) {
+    this.openOverlay((overlay) => {
+      const panel = overlay.createDiv({ cls: "fmic-viewer-panel" });
+      panel.createEl("img", { attr: { src, alt, referrerpolicy: "no-referrer" } });
+      panel.createDiv({ cls: "fmic-viewer-hint", text: "Click or press Esc to close" });
+    });
+  }
+
+  /** Enlarged copy of the card, sized to fit the window. */
+  private openCardViewer(root: HTMLElement) {
+    if (root.querySelector(".fmic-adjusting")) return;
+    this.openOverlay((overlay) => {
+      const win = overlay.ownerDocument.defaultView ?? window;
+      const copy = root.cloneNode(true) as HTMLElement;
+      copy
+        .querySelectorAll(".fmic-adjust-btn, .fmic-adjust-bar, .fmic-image-ghost")
+        .forEach((n) => n.remove());
+      copy.removeClass("fmic-zoomable");
+      // 1 in = 96 CSS px, so the card is 240 x 336 px at scale 1.
+      const scale = Math.min(5, Math.max(1, Math.min((win.innerHeight * 0.9) / 336, (win.innerWidth * 0.92) / 240)));
+      copy.style.setProperty("--fmic-scale", String(scale));
+      // `markdown-rendered` keeps Obsidian's content styles for the description outside the note.
+      overlay.createDiv({ cls: "markdown-rendered fmic-card-viewer" }).appendChild(copy);
+      overlay.createDiv({ cls: "fmic-viewer-hint fmic-viewer-hint-float", text: "Click or press Esc to close" });
+    });
+  }
+
+  /** Full-window overlay. Click anywhere or press Esc to close. */
+  private openOverlay(fill: (overlay: HTMLElement) => void) {
     const doc = this.containerEl.ownerDocument;
     const overlay = doc.body.createDiv({ cls: "fmic-viewer" });
-    const panel = overlay.createDiv({ cls: "fmic-viewer-panel" });
-    panel.createEl("img", { attr: { src, alt, referrerpolicy: "no-referrer" } });
-    panel.createDiv({ cls: "fmic-viewer-hint", text: "Click or press Esc to close" });
+    fill(overlay);
 
     const close = () => {
       overlay.remove();
