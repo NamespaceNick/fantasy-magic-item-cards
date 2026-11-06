@@ -11,6 +11,9 @@ const TABLE_ROW = /^\s*\|/;
 const HEADING = /^\s{0,3}#{1,6}\s/;
 const HR = /^\s{0,3}([-*_])(\s*\1){2,}\s*$/;
 
+// A list item marker: "- ", "* ", "+ ", "1. ", "1) " (any indentation, for nested lists).
+const LIST_ITEM = /^\s*([-*+]|\d{1,9}[.)])\s+/;
+
 function isStructural(line: string): boolean {
   return TABLE_ROW.test(line) || HEADING.test(line) || HR.test(line) || FENCE.test(line);
 }
@@ -76,7 +79,9 @@ export function formatDescription(input: string): string {
       next.trim() !== "" &&
       !isStructural(line) &&
       !isStructural(next) &&
-      !FENCE.test(next);
+      // Never put a hard break right before a list item: the list already starts
+      // a new line, and the trailing spaces confuse some renderers into nesting.
+      !LIST_ITEM.test(next);
 
     line = line.replace(/[ \t]+$/, "");
     if (wantsBreak && !line.endsWith("\\")) line += "  ";

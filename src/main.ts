@@ -165,20 +165,45 @@ class CardRenderChild extends MarkdownRenderChild {
     }
   }
 
-  /** Shrink text until the description fits the fixed card size (min 55%). */
+  /**
+   * Shrink text until the description fits the fixed card size (min 50%).
+   *
+   * Runs again whenever the card's size changes. That matters for PDF export and
+   * printing: the note is rendered in a hidden page where the card has no layout
+   * (height 0) at first, so a one-off fit right after render would be skipped.
+   * Everything on the card scales together, so a factor measured at screen size
+   * also holds at print size.
+   */
   private fit(root: HTMLElement, desc: HTMLElement) {
+    const win = root.win;
+    let frame = 0;
     const run = () => {
+      frame = 0;
       if (!root.isConnected || root.offsetHeight === 0) return;
       let factor = 1;
       root.style.setProperty("--fmic-fit", "1");
-      while (desc.scrollHeight > desc.clientHeight + 1 && factor > 0.55) {
+      while (desc.scrollHeight > desc.clientHeight + 1 && factor > 0.5) {
         factor = Math.round((factor - 0.05) * 100) / 100;
         root.style.setProperty("--fmic-fit", String(factor));
       }
       root.toggleClass("fmic-overflow", desc.scrollHeight > desc.clientHeight + 1);
     };
-    window.requestAnimationFrame(run);
-    window.setTimeout(run, 300); // re-check after images/fonts settle
+    const schedule = () => {
+      if (!frame) frame = win.requestAnimationFrame(run);
+    };
+
+    schedule();
+    const observer = new (win as Window & typeof globalThis).ResizeObserver(schedule);
+    observer.observe(root);
+    // Late-loading fonts/images can change text height without resizing the card.
+    const late = win.setTimeout(schedule, 300);
+    win.addEventListener("beforeprint", run);
+    this.register(() => {
+      observer.disconnect();
+      win.clearTimeout(late);
+      win.removeEventListener("beforeprint", run);
+      if (frame) win.cancelAnimationFrame(frame);
+    });
   }
 
   private renderImage(root: HTMLElement, card: Card) {

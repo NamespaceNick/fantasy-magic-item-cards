@@ -213,8 +213,29 @@
 .fmic-description > :first-child { margin-top: 0; }
 .fmic-description > :last-child { margin-bottom: 0; }
 .fmic-description p { margin: 0 0 0.6em; }
+/* Lists: explicit styling so themes / PDF export can't add their own markers or indents. */
 .fmic-description ul,
-.fmic-description ol { margin: 0.3em 0 0.6em; padding-left: 1.4em; }
+.fmic-description ol {
+  margin: 0.3em 0 0.6em;
+  padding: 0 0 0 1.3em;
+  list-style-position: outside;
+}
+.fmic-description ul { list-style-type: disc; }
+.fmic-description ol { list-style-type: decimal; }
+.fmic-description ul ul,
+.fmic-description ol ul { list-style-type: circle; margin: 0.1em 0; }
+.fmic-description li {
+  margin: 0 0 0.15em;
+  padding: 0;
+  text-indent: 0;
+  background: none;
+}
+.fmic-description li::before,
+.fmic-description li::after { content: none; }
+.fmic-description li::marker { color: var(--fmic-accent); }
+.fmic-description li > p { margin: 0; }
+.fmic-description li > ul,
+.fmic-description li > ol { margin-top: 0.1em; }
 .fmic-description table { width: 100%; margin: 0.4em 0; font-size: 0.95em; }
 .fmic-description th,
 .fmic-description td { border: 1px solid var(--fmic-accent); padding: 2px 6px; }

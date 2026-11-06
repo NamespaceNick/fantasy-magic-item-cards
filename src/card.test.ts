@@ -189,6 +189,18 @@ describe("formatDescription", () => {
     expect(formatDescription("\r\na\r\nb\r\n\r\n")).toBe("a  \nb");
   });
 
+  it("adds no trailing spaces before or between list items", () => {
+    const md = "Intro line:\n- first\n- second\n  continued\n  more\n\nAfter.";
+    // Breaks are kept between a bullet and its own continuation lines, but not before the next bullet.
+    expect(formatDescription(md)).toBe("Intro line:\n- first\n- second  \n  continued  \n  more\n\nAfter.");
+    const out = formatDescription("While you wield it:\n- one\n- two\n1. num\n2. num2\n   - nested");
+    expect(out).toBe("While you wield it:\n- one\n- two\n1. num\n2. num2\n   - nested");
+  });
+
+  it("still breaks between ordinary prose lines after a list ends", () => {
+    expect(formatDescription("- a\n\nx\ny")).toBe("- a\n\nx  \ny");
+  });
+
   it("does not double up an explicit backslash break", () => {
     expect(formatDescription("a\\\nb")).toBe("a\\\nb");
   });
