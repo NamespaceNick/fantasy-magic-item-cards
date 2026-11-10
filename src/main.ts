@@ -191,16 +191,37 @@ class CardRenderChild extends MarkdownRenderChild {
   private fit(root: HTMLElement, desc: HTMLElement) {
     const win = root.win;
     let frame = 0;
-    const run = () => {
-      frame = 0;
-      if (!root.isConnected || root.offsetHeight === 0) return;
+    // Needs a little spare room so rounding differences can't clip the last line. We compare
+    // the bottom edge of the last block with the box (scrollHeight can't tell us about spare
+    // room: it is never smaller than the box itself).
+    const overflows = () => {
+      const last = desc.lastElementChild;
+      if (!last) return false;
+      const limit = desc.getBoundingClientRect().top + desc.clientHeight - 2;
+      return last.getBoundingClientRect().bottom > limit || desc.scrollHeight > desc.clientHeight + 1;
+    };
+    const fitHere = () => {
       let factor = 1;
       root.style.setProperty("--fmic-fit", "1");
-      while (desc.scrollHeight > desc.clientHeight + 1 && factor > 0.5) {
+      while (overflows() && factor > 0.5) {
         factor = Math.round((factor - 0.05) * 100) / 100;
         root.style.setProperty("--fmic-fit", String(factor));
       }
-      root.toggleClass("fmic-overflow", desc.scrollHeight > desc.clientHeight + 1);
+      return factor;
+    };
+    const run = () => {
+      frame = 0;
+      if (!root.isConnected || root.offsetHeight === 0) return;
+      // Fit at print size (scale 1) too and take the stricter result, so what fits on screen
+      // can't spill over when printed or exported.
+      const prevScale = root.style.getPropertyValue("--fmic-scale");
+      root.style.setProperty("--fmic-scale", "1");
+      const atPrintSize = fitHere();
+      if (prevScale) root.style.setProperty("--fmic-scale", prevScale);
+      else root.style.removeProperty("--fmic-scale");
+      const factor = Math.min(atPrintSize, fitHere());
+      root.style.setProperty("--fmic-fit", String(factor));
+      root.toggleClass("fmic-overflow", overflows());
     };
     const schedule = () => {
       if (!frame) frame = win.requestAnimationFrame(run);
@@ -209,11 +230,23 @@ class CardRenderChild extends MarkdownRenderChild {
     schedule();
     const observer = new (win as Window & typeof globalThis).ResizeObserver(schedule);
     observer.observe(root);
+    // Re-fit when the content changes height later (tables and other blocks are often
+    // finished by the theme or other plugins after our first fit).
+    const watchBlocks = () => {
+      for (const child of Array.from(desc.children)) observer.observe(child);
+    };
+    watchBlocks();
+    const mutations = new (win as Window & typeof globalThis).MutationObserver(() => {
+      watchBlocks();
+      schedule();
+    });
+    mutations.observe(desc, { childList: true, subtree: true, characterData: true });
     // Late-loading fonts/images can change text height without resizing the card.
     const late = win.setTimeout(schedule, 300);
     win.addEventListener("beforeprint", run);
     this.register(() => {
       observer.disconnect();
+      mutations.disconnect();
       win.clearTimeout(late);
       win.removeEventListener("beforeprint", run);
       if (frame) win.cancelAnimationFrame(frame);
@@ -435,6 +468,11 @@ class CardRenderChild extends MarkdownRenderChild {
         .querySelectorAll(".fmic-adjust-btn, .fmic-adjust-bar, .fmic-image-ghost")
         .forEach((n) => n.remove());
       copy.removeClass("fmic-zoomable");
+      // The enlarged copy lives outside the note, so a per-note theme font (e.g. ITS cssclasses)
+      // wouldn't reach it. Pin the title to the font the original card actually uses.
+      const origName = root.querySelector(".fmic-name");
+      const copyName = copy.querySelector<HTMLElement>(".fmic-name");
+      if (origName && copyName) copyName.style.fontFamily = win.getComputedStyle(origName).fontFamily;
       // 1 in = 96 CSS px, so the card is 240 x 336 px at scale 1.
       const scale = Math.min(5, Math.max(1, Math.min((win.innerHeight * 0.9) / 336, (win.innerWidth * 0.92) / 240)));
       copy.style.setProperty("--fmic-scale", String(scale));

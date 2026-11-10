@@ -205,3 +205,32 @@ describe("formatDescription", () => {
     expect(formatDescription("a\\\nb")).toBe("a\\\nb");
   });
 });
+
+describe("long card with unindented description, bold lead-ins and a list after a paragraph", () => {
+  const source = [
+    "name: Test Staff",
+    "image: a.png",
+    "price: 100",
+    "description: |",
+    "Intro sentence that is fairly long and mentions a thing.",
+    "",
+    "**Lead In.** Some text with *italic* words. While you wield it:",
+    "- First bullet.",
+    "- Second bullet with (d10 at 5th, d12 at 11th).",
+    "",
+    "**Second Lead.** More text, with an apostrophe’s curly quote.",
+  ].join("\n");
+
+  it("keeps the whole description as raw text and the other fields in YAML", () => {
+    const { yaml, description } = splitDescription(source);
+    expect(yaml).toBe("name: Test Staff\nimage: a.png\nprice: 100");
+    expect(description?.split("\n")).toHaveLength(7);
+    expect(description).toContain("’s curly quote");
+  });
+
+  it("puts no hard-break spaces before the list or between bullets", () => {
+    const out = formatDescription(splitDescription(source).description!);
+    expect(out).toContain("While you wield it:\n- First bullet.\n- Second bullet");
+    expect(out).not.toMatch(/ {2}\n- /);
+  });
+});
